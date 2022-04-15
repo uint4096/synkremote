@@ -1,12 +1,17 @@
 const { readdir, stat } = require("fs").promises;
-const { createReadStream } = require('fs');
+const protoBuf = require('protocol-buffers');
+const { createReadStream, readFileSync } = require('fs');
 const tcp = require("net");
-const { join, basename } = require("path");
+const { join } = require("path");
 const { Transform } = require("stream");
 
 const REMOTE_ADDR = process.argv[2];
 const LOCAL_DIR = process.argv[3];
 const REMOTE_DIR_NAME = process.argv[4];
+
+const messages = protoBuf(
+    readFileSync("schema.proto")
+);
 
 (async () => {
     const connection = tcp.createConnection({
@@ -22,57 +27,57 @@ const REMOTE_DIR_NAME = process.argv[4];
         console.log("Connection closed");
     });
 
-    connection.on('drain', () => {
-        console.log("Connection drained");
-    });
-
     const createTransformStream = (filePath) => new Transform({
         objectMode: true,
         transform (chunk, _, cb) {
-            const dirLengthBuf = Buffer.alloc(2);
-            const address = join(`${REMOTE_DIR_NAME}`, basename(filePath));
-            dirLengthBuf.writeUInt16BE(address.length);
+            const file = messages.File.encode({
+                name: `${filePath.replace(LOCAL_DIR, REMOTE_DIR_NAME)}`,
+                content: chunk.toString('utf-8')
+            });
 
-            const dirBuf = Buffer.from(address, "utf-8");
+            const lengthBuf = Buffer.alloc(4);
+            lengthBuf.writeUInt32BE(file.length);
 
-            const contentLengthBuf = Buffer.alloc(4);
-            contentLengthBuf.writeUInt32BE(chunk.length);
-
-            const data = Buffer.concat([
-                dirLengthBuf,
-                dirBuf,
-                contentLengthBuf,
-                chunk
-            ]);
-
-            cb(null, data);
+            cb(null, Buffer.concat([lengthBuf, file]));
         },
     });
 
     const recursivelySync = async (directory, connection) => {
 
         const fileSync = async (files, index = 0) => {
+            if (!files[index]) {
+                return;
+            }
             const path = join(directory, files[index]);
             const stats = await stat(path);
             if (stats.isDirectory()) {
                 await recursivelySync(path, connection);
-                await fileSync(files, index + 1);
+                if (index + 1 <= files.length - 1) {
+                    await fileSync(files, index + 1);
+                }
             } else {
                 return new Promise((resolve, reject) => {
                     const readable = createReadStream(path, { flags: "r" });
                     readable.on("open", () => {
-                        console.log(`Syncing ${path}`);
+                        console.log(`Reading ${path}`);
                     });
 
                     readable.on("error", (err) => {
-                        console.log(`Error while reading: ${err}`);
+                        console.log(`Error while reading ${path}: ${err}`);
                         reject(err.message);
                     });
 
                     const transform = createTransformStream(path, connection);
 
                     transform.on("data", (chunk) => {
-                        connection.write(chunk);
+                        const written = connection.write(chunk);
+                        if (!written) {
+                            console.log("Buffer exceeded limit.");
+                            transform.pause();
+                            connection.once('drain', () => {
+                                transform.resume();
+                            });
+                        }
                     });
 
                     transform.on("error", (err) => {
@@ -81,15 +86,13 @@ const REMOTE_DIR_NAME = process.argv[4];
                     });
 
                     transform.on("end", () => {
-                        console.log(`Synced ${path}`)
+                        console.log(`Sync initiated for ${path}`)
                         resolve('Done!');
                     });
 
                     transform.on('close', async () => {
                         if (index + 1 <= files.length - 1) {
                             await fileSync(files, index + 1);
-                        } else {
-                            console.log(`All files synced for directory: ${directory}`);
                         }
                     });
 

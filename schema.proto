@@ -1,0 +1,4 @@
+message File {
+  required string name = 1;
+  required string content = 2;
+}
