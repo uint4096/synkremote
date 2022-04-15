@@ -1,13 +1,14 @@
 const { readdir, stat } = require("fs").promises;
 const { createReadStream } = require('fs');
 const tcp = require("net");
-const { join } = require("path");
+const { join, basename } = require("path");
 const { Transform } = require("stream");
 
 const REMOTE_ADDR = process.argv[2];
 const LOCAL_DIR = process.argv[3];
+const REMOTE_DIR_NAME = process.argv[4];
 
-(() => {
+(async () => {
     const connection = tcp.createConnection({
         host: REMOTE_ADDR.split(":")[0],
         port: REMOTE_ADDR.split(":")[1],
@@ -29,10 +30,10 @@ const LOCAL_DIR = process.argv[3];
         objectMode: true,
         transform (chunk, _, cb) {
             const dirLengthBuf = Buffer.alloc(2);
-            dirLengthBuf.writeUInt16BE(filePath.length);
+            const address = join(`${REMOTE_DIR_NAME}`, basename(filePath));
+            dirLengthBuf.writeUInt16BE(address.length);
 
-            const dirBuf = Buffer.from(filePath, "utf-8");
-            console.log(Buffer.from(dirBuf).toString());
+            const dirBuf = Buffer.from(address, "utf-8");
 
             const contentLengthBuf = Buffer.alloc(4);
             contentLengthBuf.writeUInt32BE(chunk.length);
@@ -44,56 +45,75 @@ const LOCAL_DIR = process.argv[3];
                 chunk
             ]);
 
-            console.log(Buffer.from(data).toString());
             cb(null, data);
         },
     });
-    
+
     const recursivelySync = async (directory, connection) => {
 
         const fileSync = async (files, index = 0) => {
             const path = join(directory, files[index]);
-            const stats = await stat(join(directory, files[index]));
+            const stats = await stat(path);
             if (stats.isDirectory()) {
-                recursivelySync(path, connection);
+                await recursivelySync(path, connection);
+                await fileSync(files, index + 1);
             } else {
-                const readable = createReadStream(join(directory, files[index]), { flags: "r" });
-                const transform = createTransformStream(files[index], connection);
+                return new Promise((resolve, reject) => {
+                    const readable = createReadStream(path, { flags: "r" });
+                    readable.on("open", () => {
+                        console.log(`Syncing ${path}`);
+                    });
 
-                transform.on("data", (chunk) => {
-                    connection.write(chunk);
-                });
+                    readable.on("error", (err) => {
+                        console.log(`Error while reading: ${err}`);
+                        reject(err.message);
+                    });
 
-                transform.on("error", (err) => {
-                    console.log(err);
-                });
+                    const transform = createTransformStream(path, connection);
 
-                readable.on("end", () => {
-                    console.log(`Stream ended for ${directory}/${files[index]}`);
-                });
-    
-                transform.on("end", () => {
-                    if (index + 1 <= files.length - 1) {
-                        fileSync(files, index + 1);
-                    } else {
-                        console.log(`All files synced for directory: ${directory}`);
-                    }
-                });
+                    transform.on("data", (chunk) => {
+                        connection.write(chunk);
+                    });
 
-                transform.on('close', () => {
-                    console.log("Stream closed");
-                });
+                    transform.on("error", (err) => {
+                        console.log(`Error: ${err}`);
+                        reject(err.message);
+                    });
 
-                readable.pipe(transform);
+                    transform.on("end", () => {
+                        console.log(`Synced ${path}`)
+                        resolve('Done!');
+                    });
+
+                    transform.on('close', async () => {
+                        if (index + 1 <= files.length - 1) {
+                            await fileSync(files, index + 1);
+                        } else {
+                            console.log(`All files synced for directory: ${directory}`);
+                        }
+                    });
+
+                    readable.pipe(transform);
+                });
             }
         }
 
         const stats = await stat(directory);
         if (stats.isDirectory()) {
-            const files = await readdir(directory);
-            fileSync(files);
-        } 
+            try {
+                const files = await readdir(directory);
+                await fileSync(files);
+            } catch (err) {
+                console.log(err);
+            }
+        } else {
+            throw new Error("Not a directory!")
+        }
     }
 
-    recursivelySync(LOCAL_DIR, connection);
+    try {
+        await recursivelySync(LOCAL_DIR, connection);
+    } catch (err) {
+        console.log(err);
+    }
 })();
