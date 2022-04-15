@@ -9,7 +9,24 @@ const server = tcp.createServer((socket) => {
     });
 
     socket.on("data", (chunk) => {
-        console.log(Buffer.from(chunk).toString())
+        let n = 0;
+        while (n < chunk.length) {
+            const dirLength = chunk.readUint16BE(n);
+
+            const dirOffsetStart = n + 2;
+            const dirOffsetEnd = dirOffsetStart + dirLength;
+            const dir = chunk.toString("utf-8", dirOffsetStart, dirOffsetEnd);
+
+            const fileLength = chunk.readUint32BE(dirOffsetEnd);
+
+            const fileOffsetStart = dirOffsetEnd + 4;
+            const fileOffsetEnd = fileOffsetStart + fileLength;
+            const file = chunk.toString("utf-8", fileOffsetStart, fileOffsetEnd);
+
+            console.log(dir, file);
+
+            n = fileOffsetEnd;
+        }
     });
 });
 
