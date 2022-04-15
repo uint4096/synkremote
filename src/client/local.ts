@@ -1,22 +1,24 @@
-const { readdir, stat } = require("fs").promises;
-const protoBuf = require('protocol-buffers');
-const { createReadStream, readFileSync } = require('fs');
-const tcp = require("net");
-const { join } = require("path");
-const { Transform } = require("stream");
+import { readdir, stat } from "fs/promises";
+import { createReadStream, readFileSync } from "fs";
+import protoBuf from 'protocol-buffers';
+import { createConnection, Socket } from "net";
+import { join } from "path";
+import { Transform } from "stream";
+import type { Message } from "../utils/types";
 
 const REMOTE_ADDR = process.argv[2];
 const LOCAL_DIR = process.argv[3];
 const REMOTE_DIR_NAME = process.argv[4];
 
-const messages = protoBuf(
-    readFileSync("schema.proto")
-);
 
 (async () => {
-    const connection = tcp.createConnection({
+    const message: Message = protoBuf(
+        readFileSync(join(__dirname, "../schema.proto"))
+    );
+
+    const connection = createConnection({
         host: REMOTE_ADDR.split(":")[0],
-        port: REMOTE_ADDR.split(":")[1],
+        port: parseInt(REMOTE_ADDR.split(":")[1]),
     });
 
     connection.on("error", (err) => {
@@ -27,10 +29,9 @@ const messages = protoBuf(
         console.log("Connection closed");
     });
 
-    const createTransformStream = (filePath) => new Transform({
-        objectMode: true,
-        transform (chunk, _, cb) {
-            const file = messages.File.encode({
+    const createTransformStream = (filePath: string): Transform => new Transform({
+        transform (chunk: Buffer, _, cb) {
+            const file = message.File.encode({
                 name: `${filePath.replace(LOCAL_DIR, REMOTE_DIR_NAME)}`,
                 content: chunk.toString('utf-8')
             });
@@ -42,9 +43,9 @@ const messages = protoBuf(
         },
     });
 
-    const recursivelySync = async (directory, connection) => {
+    const recursivelySync = async (directory: string, connection: Socket) => {
 
-        const fileSync = async (files, index = 0) => {
+        const fileSync = async (files: Array<string>, index: number = 0) => {
             if (!files[index]) {
                 return;
             }
@@ -67,9 +68,9 @@ const messages = protoBuf(
                         reject(err.message);
                     });
 
-                    const transform = createTransformStream(path, connection);
+                    const transform = createTransformStream(path);
 
-                    transform.on("data", (chunk) => {
+                    transform.on("data", (chunk: Buffer) => {
                         const written = connection.write(chunk);
                         if (!written) {
                             console.log("Buffer exceeded limit.");

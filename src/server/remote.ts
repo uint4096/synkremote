@@ -1,35 +1,37 @@
-const { existsSync, mkdirSync, readFileSync } = require("fs");
-const protoBuf = require('protocol-buffers');
-const { open } = require("fs/promises");
-const tcp = require("net");
-const { homedir } = require("os");
-const { join, parse } = require("path");
+import { existsSync, mkdirSync, readFileSync } from "fs";
+import { open } from "fs/promises";
+import protoBuf from 'protocol-buffers';
+import { createServer } from "net";
+import { homedir } from "os";
+import { join, parse } from "path";
+import type { Message } from "../utils/types";
 
 const ROOT_APP_DIR = process.argv[2] || `${homedir()}/apps`;
-const messages = protoBuf(
-    readFileSync("schema.proto")
-);
 
 (() => {
-    const server = tcp.createServer((socket) => {
+    const message: Message = protoBuf(
+        readFileSync(join(__dirname, "../schema.proto"))
+    );
+
+    const server = createServer((socket) => {
         socket.on("connect", () => {
             console.log(`A client connected: ${socket.address()}`);
         });
     
-        let buf = Buffer.alloc(0);
+        let packets = Buffer.alloc(0);
         socket.on("data", async (data) => {
             let offset = 0;
-            buf = Buffer.concat([buf, data]);
-            while (offset < buf.length) {
-                const length = buf.readUInt32BE();
-                if (buf.length >= length + 4) {
-                    const file = messages.File.decode(
-                        Buffer.from(buf),
+            packets = Buffer.concat([packets, data]);
+            while (offset < packets.length) {
+                const length = packets.readUInt32BE();
+                if (packets.length >= length + 4) {
+                    const file = message.File.decode(
+                        Buffer.from(packets),
                         4,
                         length
                     );
                     offset = length + 4;
-                    buf = buf.slice(offset);
+                    packets = packets.slice(offset);
     
                     if (!file.content || !file.name) {
                         throw new Error("Parse Error!");
@@ -55,6 +57,6 @@ const messages = protoBuf(
             }
         });
     });
-    
+
     server.listen(8080);
 })();
