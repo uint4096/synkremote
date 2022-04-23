@@ -9,3 +9,19 @@ export interface Message {
         decode: (message: Buffer, offset: number, length: number) => File;
     }
 }
+
+export interface ServerArgs {
+    localPort?: number;
+    rootdir?: string;
+}
+
+export interface ClientArgs {
+    addr?: string;
+    host?: string;
+    port?: string;
+    dir?: string;
+    file?: string;
+    include?: string;
+    exclude?: string;
+    remoteDir?: string;
+}

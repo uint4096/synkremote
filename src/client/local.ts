@@ -2,23 +2,38 @@ import { readdir, stat } from "fs/promises";
 import { createReadStream, readFileSync } from "fs";
 import protoBuf from 'protocol-buffers';
 import { createConnection, Socket } from "net";
-import { join } from "path";
+import path, { join } from "path";
 import { Transform } from "stream";
-import type { Message } from "../utils/types";
+import type { ClientArgs, Message } from "../utils/types";
 
-const REMOTE_ADDR = process.argv[2];
-const LOCAL_DIR = process.argv[3];
-const REMOTE_DIR_NAME = process.argv[4];
+const client = async (args: ClientArgs) => {
 
+    if (!args.addr && (!args.host || !args.port)) {
+        throw new Error("Incorrect remote host or port!");
+    } else if (!args.dir && !args.file) {
+        throw new Error("No file or directory specified");
+    }
 
-(async () => {
+    const remoteAddress = args.addr
+        ? args.addr
+        : args.host && args.port
+            ? `${args.host}:${args.port}`
+            : '';
+
+    const resolver = args.dir || args.file;
+    const remoteDir = args.remoteDir
+        ? args.remoteDir
+        : resolver
+            ? resolver.split(path.sep).slice(-1)[0]
+            : '';
+
     const message: Message = protoBuf(
         readFileSync(join(__dirname, "../schema.proto"))
     );
 
     const connection = createConnection({
-        host: REMOTE_ADDR.split(":")[0],
-        port: parseInt(REMOTE_ADDR.split(":")[1]),
+        host: remoteAddress.split(":")[0],
+        port: parseInt(remoteAddress.split(":")[1]),
     });
 
     connection.on("error", (err) => {
@@ -32,7 +47,7 @@ const REMOTE_DIR_NAME = process.argv[4];
     const createTransformStream = (filePath: string): Transform => new Transform({
         transform (chunk: Buffer, _, cb) {
             const file = message.File.encode({
-                name: `${filePath.replace(LOCAL_DIR, REMOTE_DIR_NAME)}`,
+                name: `${filePath.replace(args.dir as string, remoteDir)}`,
                 content: chunk.toString('utf-8')
             });
 
@@ -116,8 +131,12 @@ const REMOTE_DIR_NAME = process.argv[4];
     }
 
     try {
-        await recursivelySync(LOCAL_DIR, connection);
+        if (args.dir) {
+            await recursivelySync(args.dir, connection);
+        }
     } catch (err) {
         console.log(err);
     }
-})();
+};
+
+export default client;
