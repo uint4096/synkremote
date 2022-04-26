@@ -2,7 +2,7 @@ import { readdir, stat } from "fs/promises";
 import { createReadStream, readFileSync } from "fs";
 import protoBuf from 'protocol-buffers';
 import { createConnection, Socket } from "net";
-import path, { join } from "path";
+import path from "path";
 import { Transform } from "stream";
 import type { ClientArgs, Message } from "../utils/types";
 
@@ -20,15 +20,16 @@ const client = async (args: ClientArgs) => {
             ? `${args.host}:${args.port}`
             : '';
 
-    const resolver = args.dir || args.file;
     const remoteDir = args.remoteDir
         ? args.remoteDir
-        : resolver
-            ? resolver.split(path.sep).slice(-1)[0]
-            : '';
+        : args.dir
+            ? args.dir.split(path.sep).slice(-1)[0]
+            : args.file
+                ? args.file.split(path.sep).slice(-2)[0]
+                : "";
 
     const message: Message = protoBuf(
-        readFileSync(join(__dirname, "../schema.proto"))
+        readFileSync(path.join(__dirname, "../schema.proto"))
     );
 
     const connection = createConnection({
@@ -47,7 +48,10 @@ const client = async (args: ClientArgs) => {
     const createTransformStream = (filePath: string): Transform => new Transform({
         transform (chunk: Buffer, _, cb) {
             const file = message.File.encode({
-                name: `${filePath.replace(args.dir as string, remoteDir)}`,
+                name: `${filePath.replace(
+                    args.dir || path.dirname(args.file as string),
+                    remoteDir
+                )}`,
                 content: chunk.toString('utf-8')
             });
 
@@ -58,81 +62,97 @@ const client = async (args: ClientArgs) => {
         },
     });
 
-    const recursivelySync = async (directory: string, connection: Socket) => {
+    const dirSync = async (
+        directory: string,
+        files: Array<string>,
+        index: number = 0,
+        connection: Socket
+    ) => {
 
-        const fileSync = async (files: Array<string>, index: number = 0) => {
-            if (!files[index]) {
-                return;
-            }
-            const path = join(directory, files[index]);
-            const stats = await stat(path);
-            if (stats.isDirectory()) {
-                await recursivelySync(path, connection);
-                if (index + 1 <= files.length - 1) {
-                    await fileSync(files, index + 1);
-                }
-            } else {
-                return new Promise((resolve, reject) => {
-                    const readable = createReadStream(path, { flags: "r" });
-                    readable.on("open", () => {
-                        console.log(`Reading ${path}`);
-                    });
-
-                    readable.on("error", (err) => {
-                        console.log(`Error while reading ${path}: ${err}`);
-                        reject(err.message);
-                    });
-
-                    const transform = createTransformStream(path);
-
-                    transform.on("data", (chunk: Buffer) => {
-                        const written = connection.write(chunk);
-                        if (!written) {
-                            console.log("Buffer exceeded limit.");
-                            transform.pause();
-                            connection.once('drain', () => {
-                                transform.resume();
-                            });
-                        }
-                    });
-
-                    transform.on("error", (err) => {
-                        console.log(`Error: ${err}`);
-                        reject(err.message);
-                    });
-
-                    transform.on("end", () => {
-                        console.log(`Sync initiated for ${path}`)
-                        resolve('Done!');
-                    });
-
-                    transform.on('close', async () => {
-                        if (index + 1 <= files.length - 1) {
-                            await fileSync(files, index + 1);
-                        }
-                    });
-
-                    readable.pipe(transform);
-                });
-            }
+        if (!files[index]) {
+            return;
         }
 
-        const stats = await stat(directory);
+        const fileSync = (filePath: string) => {
+            return new Promise((resolve, reject) => {
+                const readable = createReadStream(filePath, { flags: "r" });
+                readable.on("open", () => {
+                    console.log(`Reading ${filePath}`);
+                });
+
+                readable.on("error", (err) => {
+                    console.log(`Error while reading ${filePath}: ${err}`);
+                    reject(err.message);
+                });
+
+                const transform = createTransformStream(filePath);
+
+                transform.on("data", (chunk: Buffer) => {
+                    const written = connection.write(chunk);
+                    if (!written) {
+                        console.log("Buffer exceeded limit.");
+                        transform.pause();
+                        connection.once('drain', () => {
+                            transform.resume();
+                        });
+                    }
+                });
+
+                transform.on("error", (err) => {
+                    console.log(`Error: ${err}`);
+                    reject(err.message);
+                });
+
+                transform.on("end", () => {
+                    console.log(`Sync initiated for ${filePath}`)
+                    resolve('Done!');
+                });
+
+                transform.on('close', async () => {
+                    if (index + 1 <= files.length - 1) {
+                        await dirSync(directory, files, index + 1, connection);
+                    }
+                });
+
+                readable.pipe(transform);
+            });
+        }
+
+        const filePath = path.join(directory, files[index]);
+        const stats = await stat(filePath);
         if (stats.isDirectory()) {
-            try {
-                const files = await readdir(directory);
-                await fileSync(files);
-            } catch (err) {
-                console.log(err);
+            const dirFiles = await readdir(filePath);
+            await dirSync(filePath, dirFiles, 0, connection);
+            if (index + 1 <= files.length - 1) {
+                await dirSync(directory, files, index + 1, connection);
             }
         } else {
-            throw new Error("Not a directory!")
+            fileSync(filePath);
         }
     }
 
     try {
+        if (!args.dir && !args.file) {
+            throw new Error("Invalid args!");
+        }
+
         if (args.dir) {
-            await recursivelySync(args.dir, connection);
+            const stats = await stat(args.dir);
+            if (stats.isDirectory()) {
+                const files = await readdir(args.dir);
+                await dirSync(args.dir, files, 0, connection);
+            } else {
+                throw new Error("Not a directory!");
+            }
+        } else if (args.file) {
+            const stats = await stat(args.file);
+            if (!stats.isDirectory()) {
+                const dir = path.dirname(args.file);
+                const file = path.basename(args.file);
+                await dirSync(dir, [file], 0, connection);
+            } else {
+                throw new Error("Not a file!");
+            }
         }
     } catch (err) {
         console.log(err);
