@@ -1,3 +1,4 @@
+import type { Pattern } from 'fast-glob';
 interface File {
     content: string;
     name: string;
@@ -21,7 +22,7 @@ export interface ClientArgs {
     port?: string;
     dir?: string;
     file?: string;
-    include?: string;
-    exclude?: string;
+    include?: Pattern;
+    exclude?: Pattern;
     remoteDir?: string;
 }

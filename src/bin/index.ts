@@ -3,7 +3,7 @@
 import minimist from 'minimist';
 import client from '../client/local';
 import server from '../server/remote';
-import { ClientArgs, ServerArgs } from '../utils/types';
+import type { ClientArgs, ServerArgs } from '../utils/types';
 
 (() => {
     const args: ServerArgs & ClientArgs & { _: Array<string>} = minimist(process.argv.slice(2));

@@ -5,6 +5,7 @@ import { createConnection, Socket } from "net";
 import path from "path";
 import { Transform } from "stream";
 import type { ClientArgs, Message } from "../utils/types";
+import fg from 'fast-glob';
 
 const client = async (args: ClientArgs) => {
 
@@ -73,7 +74,7 @@ const client = async (args: ClientArgs) => {
             return;
         }
 
-        const fileSync = (filePath: string) => {
+        const fileSync = async (filePath: string) => {
             return new Promise((resolve, reject) => {
                 const readable = createReadStream(filePath, { flags: "r" });
                 readable.on("open", () => {
@@ -119,27 +120,28 @@ const client = async (args: ClientArgs) => {
         }
 
         const filePath = path.join(directory, files[index]);
-        const stats = await stat(filePath);
-        if (stats.isDirectory()) {
-            const dirFiles = await readdir(filePath);
-            await dirSync(filePath, dirFiles, 0, connection);
-            if (index + 1 <= files.length - 1) {
-                await dirSync(directory, files, index + 1, connection);
-            }
-        } else {
-            fileSync(filePath);
-        }
+        await fileSync(filePath);
     }
 
     try {
         if (!args.dir && !args.file) {
             throw new Error("Invalid args!");
+        } else if (!connection.readyState) {
+            throw new Error("No server!");
         }
 
         if (args.dir) {
             const stats = await stat(args.dir);
             if (stats.isDirectory()) {
-                const files = await readdir(args.dir);
+                const include = args.include
+                    ? args.include
+                    : ".*";
+
+                const files = await fg(include, {
+                        cwd: args.dir,
+                        ignore: args.exclude ? [args.exclude] : []
+                    });
+
                 await dirSync(args.dir, files, 0, connection);
             } else {
                 throw new Error("Not a directory!");
