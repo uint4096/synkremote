@@ -3,6 +3,7 @@ import { createReadStream, readFileSync } from "fs";
 import protoBuf from 'protocol-buffers';
 import { createConnection, Socket } from "net";
 import path from "path";
+import os from 'os';
 import { Transform } from "stream";
 import type { ClientArgs, Message } from "../utils/types";
 import fg from 'fast-glob';
@@ -28,6 +29,30 @@ const client = async (args: ClientArgs) => {
             : args.file
                 ? args.file.split(path.sep).slice(-2)[0]
                 : "";
+
+    const includeConfig = readFileSync(
+        path.join(
+            os.homedir(),
+            ".config/synkRemote/include"
+        ),
+        { encoding: "utf-8" }
+    );
+
+    const excludeConfig = readFileSync(
+        path.join(
+            os.homedir(),
+            ".config/synkRemote/exclude"
+        ),
+        { encoding: "utf-8" }
+    );
+
+    const includes = includeConfig
+        ? includeConfig.split(os.EOL).filter(Boolean)
+        : [args.include || ".*"];
+
+    const excludes = excludeConfig
+        ? excludeConfig.split(os.EOL).filter(Boolean)
+        : [args.exclude].filter(Boolean) as Array<string>;
 
     const message: Message = protoBuf(
         readFileSync(path.join(__dirname, "../schema.proto"))
@@ -133,13 +158,9 @@ const client = async (args: ClientArgs) => {
         if (args.dir) {
             const stats = await stat(args.dir);
             if (stats.isDirectory()) {
-                const include = args.include
-                    ? args.include
-                    : ".*";
-
-                const files = await fg(include, {
+                const files = await fg(includes, {
                         cwd: args.dir,
-                        ignore: args.exclude ? [args.exclude] : []
+                        ignore: excludes
                     });
 
                 await dirSync(args.dir, files, 0, connection);
