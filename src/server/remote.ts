@@ -2,13 +2,13 @@ import { existsSync, mkdirSync, readFileSync } from "fs";
 import { open } from "fs/promises";
 import protoBuf from 'protocol-buffers';
 import { createServer } from "net";
-import { homedir } from "os";
 import { join, parse } from "path";
 import type { Message, ServerArgs } from "../utils/types";
+import { DEFAULT_DIR } from "../utils/constants";
 
 const server = (args: ServerArgs): void => {
 
-    const rootDir = args.rootdir || `${homedir()}/synkRemote`;
+    const rootDir = args.rootdir || DEFAULT_DIR;
     const port = args.localPort || 8080;
 
     const message: Message = protoBuf(

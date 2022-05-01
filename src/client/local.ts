@@ -1,66 +1,30 @@
-import { readdir, stat } from "fs/promises";
+import { stat } from "fs/promises";
 import { createReadStream, readFileSync } from "fs";
 import protoBuf from 'protocol-buffers';
 import { createConnection, Socket } from "net";
 import path from "path";
-import os from 'os';
 import { Transform } from "stream";
 import type { ClientArgs, Message } from "../utils/types";
 import fg from 'fast-glob';
 
 const client = async (args: ClientArgs) => {
 
-    if (!args.addr && (!args.host || !args.port)) {
-        throw new Error("Incorrect remote host or port!");
-    } else if (!args.dir && !args.file) {
-        throw new Error("No file or directory specified");
-    }
-
-    const remoteAddress = args.addr
-        ? args.addr
-        : args.host && args.port
-            ? `${args.host}:${args.port}`
-            : '';
-
-    const remoteDir = args.remoteDir
-        ? args.remoteDir
-        : args.dir
-            ? args.dir.split(path.sep).slice(-1)[0]
-            : args.file
-                ? args.file.split(path.sep).slice(-2)[0]
-                : "";
-
-    const includeConfig = readFileSync(
-        path.join(
-            os.homedir(),
-            ".config/synkRemote/include"
-        ),
-        { encoding: "utf-8" }
-    );
-
-    const excludeConfig = readFileSync(
-        path.join(
-            os.homedir(),
-            ".config/synkRemote/exclude"
-        ),
-        { encoding: "utf-8" }
-    );
-
-    const includes = includeConfig
-        ? includeConfig.split(os.EOL).filter(Boolean)
-        : [args.include || ".*"];
-
-    const excludes = excludeConfig
-        ? excludeConfig.split(os.EOL).filter(Boolean)
-        : [args.exclude].filter(Boolean) as Array<string>;
+    const {
+        addr,
+        file,
+        dir,
+        remoteDir,
+        include,
+        exclude
+    } = args;
 
     const message: Message = protoBuf(
         readFileSync(path.join(__dirname, "../schema.proto"))
     );
 
     const connection = createConnection({
-        host: remoteAddress.split(":")[0],
-        port: parseInt(remoteAddress.split(":")[1]),
+        host: addr.split(":")[0],
+        port: parseInt(addr.split(":")[1]),
     });
 
     connection.on("error", (err) => {
@@ -149,30 +113,28 @@ const client = async (args: ClientArgs) => {
     }
 
     try {
-        if (!args.dir && !args.file) {
-            throw new Error("Invalid args!");
-        } else if (!connection.readyState) {
+        if (!connection.readyState) {
             throw new Error("No server!");
         }
 
-        if (args.dir) {
-            const stats = await stat(args.dir);
+        if (dir) {
+            const stats = await stat(dir);
             if (stats.isDirectory()) {
-                const files = await fg(includes, {
-                        cwd: args.dir,
-                        ignore: excludes
+                const files = await fg(include, {
+                        cwd: dir,
+                        ignore: exclude
                     });
 
-                await dirSync(args.dir, files, 0, connection);
+                await dirSync(dir, files, 0, connection);
             } else {
                 throw new Error("Not a directory!");
             }
-        } else if (args.file) {
-            const stats = await stat(args.file);
+        } else if (file) {
+            const stats = await stat(file);
             if (!stats.isDirectory()) {
-                const dir = path.dirname(args.file);
-                const file = path.basename(args.file);
-                await dirSync(dir, [file], 0, connection);
+                const dir = path.dirname(file);
+                const fileName = path.basename(file);
+                await dirSync(dir, [fileName], 0, connection);
             } else {
                 throw new Error("Not a file!");
             }

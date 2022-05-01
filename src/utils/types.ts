@@ -16,13 +16,34 @@ export interface ServerArgs {
     rootdir?: string;
 }
 
-export interface ClientArgs {
+type FileArg = {
+    file: string;
+    dir?: never;
+};
+
+type DirArg = {
+    dir: string;
+    file?: never;
+};
+
+export type FileOrDir = DirArg | FileArg;
+
+interface Options {
     addr?: string;
     host?: string;
     port?: string;
-    dir?: string;
-    file?: string;
     include?: Pattern;
     exclude?: Pattern;
     remoteDir?: string;
 }
+
+export type ClientOptions = Options & FileOrDir;
+
+export type CliArgs = ServerArgs & ClientOptions & { _: Array<string>};
+
+export type ClientArgs = Required<Omit<Options, 'host' | 'port' | 'include' | 'exclude'>>
+    & {
+        include: Array<Pattern>;
+        exclude: Array<Pattern>
+    }
+    & FileOrDir;
