@@ -14,6 +14,7 @@ export interface Message {
 export interface ServerArgs {
     localPort?: number;
     rootdir?: string;
+    bindIp?: string;
 }
 
 type FileArg = {

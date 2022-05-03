@@ -62,9 +62,12 @@ const server = (args: ServerArgs): void => {
         });
     });
 
-    server.listen(port, () => {
-        console.log(`Synkremote started on port ${port}`);
-    });
+    const logMessage = `Synkremote started on port ${port}`;
+    if (args.bindIp) {
+        server.listen(port, args.bindIp, () => console.log(logMessage))
+    } else {
+        server.listen(port, () => console.log(logMessage));
+    }
 };
 
 export default server;
