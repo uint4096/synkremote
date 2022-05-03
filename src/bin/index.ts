@@ -7,9 +7,39 @@ import path from 'path';
 import client from '../client/local';
 import server from '../server/remote';
 import type { CliArgs } from '../utils/types';
-import { DEFAULT_REMOTE_DIR, EXLCUDES_CONFIG, INCLUDES_CONFIG } from '../utils/constants';
+import {
+    DEFAULT_REMOTE_DIR,
+    EXLCUDES_CONFIG,
+    INCLUDES_CONFIG
+} from '../utils/constants';
 
 (async () => {
+
+    const validatePattern = (
+        type: 'include' | 'exclude',
+        args: CliArgs,
+        defaultValue?: string
+    ): Array<string> => {
+        const config = type === 'include'
+            ? INCLUDES_CONFIG
+            : EXLCUDES_CONFIG;
+
+        const value = args[type];
+
+        if (value) {
+            return [value];
+        } else if (existsSync(config)) {
+            return readFileSync(
+                config,
+                { encoding: 'utf-8' }
+            )
+            .split(EOL)
+            .filter(Boolean);
+        } else {
+            return [defaultValue].filter(Boolean) as Array<string>;
+        }
+    }
+
     try {
         const args = minimist(process.argv.slice(2)) as CliArgs;
         if (args && args['_'].length > 0 && args['_'].includes('send')) {
@@ -37,39 +67,11 @@ import { DEFAULT_REMOTE_DIR, EXLCUDES_CONFIG, INCLUDES_CONFIG } from '../utils/c
                 remoteDir = DEFAULT_REMOTE_DIR;
             }
 
-            let include: Array<string>;
-            if (args.include) {
-                include = [args.include];
-            } else if (existsSync(INCLUDES_CONFIG)) {
-                include = readFileSync(
-                    INCLUDES_CONFIG,
-                    { encoding: 'utf-8' }
-                )
-                .split(EOL)
-                .filter(Boolean);
-            } else {
-                include = ['**/*'];
-            }
-
-            let exclude: Array<string>;
-            if (args.exclude) {
-                exclude = [args.exclude];
-            } else if (existsSync(EXLCUDES_CONFIG)) {
-                exclude = readFileSync(
-                    EXLCUDES_CONFIG,
-                    { encoding: 'utf-8' }
-                )
-                .split(EOL)
-                .filter(Boolean);
-            } else {
-                exclude = [];
-            }
-
             const clientArgs = {
                 addr: remoteAddress,
-                remoteDir: remoteDir,
-                include: include,
-                exclude: exclude,
+                remoteDir: remoteDir as string,
+                include: validatePattern('include', args, '**/*'),
+                exclude: validatePattern('exclude', args),
             };
 
             if (args.file) {
@@ -77,7 +79,6 @@ import { DEFAULT_REMOTE_DIR, EXLCUDES_CONFIG, INCLUDES_CONFIG } from '../utils/c
             } else if (args.dir) {
                 await client({ ...clientArgs, dir: args.dir });
             }
-
         } else {
             server({
                 localPort: args.localPort,

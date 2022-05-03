@@ -63,7 +63,7 @@ const server = (args: ServerArgs): void => {
     });
 
     server.listen(port, () => {
-        console.log(`SynkRemote started on port ${port}`);
+        console.log(`Synkremote started on port ${port}`);
     });
 };
 
