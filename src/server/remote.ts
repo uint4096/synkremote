@@ -4,7 +4,7 @@ import protoBuf from 'protocol-buffers';
 import { createServer } from "net";
 import { join, parse } from "path";
 import type { Message, ServerArgs } from "../utils/types";
-import { DEFAULT_DIR } from "../utils/constants";
+import { DEFAULT_DIR, ERRORS } from "../utils/constants";
 
 const server = (args: ServerArgs): void => {
 
@@ -38,7 +38,7 @@ const server = (args: ServerArgs): void => {
                     packets = packets.slice(offset);
 
                     if (!file.content || !file.name) {
-                        throw new Error("Parse Error!");
+                        throw new Error(ERRORS.PARSE_CONTENT);
                     }
 
                     console.log(`Syncing ${file.name}`);

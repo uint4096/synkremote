@@ -9,6 +9,7 @@ import server from '../server/remote';
 import type { CliArgs } from '../utils/types';
 import {
     DEFAULT_REMOTE_DIR,
+    ERRORS,
     EXLCUDES_CONFIG,
     INCLUDES_CONFIG
 } from '../utils/constants';
@@ -45,9 +46,9 @@ import {
         if (args && args['_'].length > 0 && args['_'].includes('send')) {
 
             if (!args.addr && (!args.host || !args.port)) {
-                throw new Error("Incorrect remote host or port!");
+                throw new Error(ERRORS.INVALID_ADDRESS);
             } else if (!args.file && !args.dir) {
-                throw new Error("No file or directory specified");
+                throw new Error(ERRORS.INCORRECT_PATH);
             }
 
             const remoteAddress = args.addr
@@ -59,10 +60,17 @@ import {
             let remoteDir: string;
             if (args.remoteDir) {
                 remoteDir = args.remoteDir;
-            } else if (args.dir) {
-                remoteDir = args.dir.split(path.sep).slice(-1)[0]
-            } else if (args.file) {
+            }
+            else if (args.file) {
+                if (!existsSync(args.file)) {
+                    throw new Error(ERRORS.INVALID_PATH);
+                }
                 remoteDir = args.file.split(path.sep).slice(-2)[0]
+            } else if (args.dir) {
+                if (!existsSync(args.dir)) {
+                    throw new Error(ERRORS.INVALID_PATH);
+                }
+                remoteDir = args.dir.split(path.sep).slice(-1)[0]
             } else {
                 remoteDir = DEFAULT_REMOTE_DIR;
             }

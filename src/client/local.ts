@@ -1,11 +1,12 @@
 import { stat } from "fs/promises";
-import { createReadStream, readFileSync } from "fs";
+import { createReadStream, existsSync, readFileSync } from "fs";
 import protoBuf from 'protocol-buffers';
 import { createConnection, Socket } from "net";
 import path from "path";
 import { Transform } from "stream";
 import type { ClientArgs, Message } from "../utils/types";
 import fg from 'fast-glob';
+import { ERRORS } from "../utils/constants";
 
 const client = async (args: ClientArgs) => {
 
@@ -63,58 +64,55 @@ const client = async (args: ClientArgs) => {
             return;
         }
 
-        const fileSync = async (filePath: string) => {
-            return new Promise((resolve, reject) => {
-                const readable = createReadStream(filePath, { flags: "r" });
-                readable.on("open", () => {
-                    console.log(`Reading ${filePath}`);
-                });
-
-                readable.on("error", (err) => {
-                    console.log(`Error while reading ${filePath}: ${err}`);
-                    reject(err.message);
-                });
-
-                const transform = createTransformStream(filePath);
-
-                transform.on("data", (chunk: Buffer) => {
-                    const written = connection.write(chunk);
-                    if (!written) {
-                        console.log("Buffer exceeded limit.");
-                        transform.pause();
-                        connection.once('drain', () => {
-                            transform.resume();
-                        });
-                    }
-                });
-
-                transform.on("error", (err) => {
-                    console.log(`Error: ${err}`);
-                    reject(err.message);
-                });
-
-                transform.on("end", () => {
-                    console.log(`Sync initiated for ${filePath}`)
-                    resolve('Done!');
-                });
-
-                transform.on('close', async () => {
-                    if (index + 1 <= files.length - 1) {
-                        await dirSync(directory, files, index + 1, connection);
-                    }
-                });
-
-                readable.pipe(transform);
-            });
-        }
-
         const filePath = path.join(directory, files[index]);
-        await fileSync(filePath);
+
+        return new Promise((resolve, reject) => {
+            const readable = createReadStream(filePath, { flags: "r" });
+            readable.on("open", () => {
+                console.log(`Reading ${filePath}`);
+            });
+
+            readable.on("error", (err) => {
+                console.log(`Error while reading ${filePath}: ${err}`);
+                reject(err.message);
+            });
+
+            const transform = createTransformStream(filePath);
+
+            transform.on("data", (chunk: Buffer) => {
+                const written = connection.write(chunk);
+                if (!written) {
+                    console.log("Buffer exceeded limit.");
+                    transform.pause();
+                    connection.once('drain', () => {
+                        transform.resume();
+                    });
+                }
+            });
+
+            transform.on("error", (err) => {
+                console.log(`Error: ${err}`);
+                reject(err.message);
+            });
+
+            transform.on("end", () => {
+                console.log(`Sync initiated for ${filePath}`)
+                resolve('Done!');
+            });
+
+            transform.on('close', async () => {
+                if (index + 1 <= files.length - 1) {
+                    await dirSync(directory, files, index + 1, connection);
+                }
+            });
+
+            readable.pipe(transform);
+        });
     }
 
     try {
         if (!connection.readyState) {
-            throw new Error("No server!");
+            throw new Error(ERRORS.NO_SERVER);
         }
 
         if (dir) {
@@ -127,7 +125,7 @@ const client = async (args: ClientArgs) => {
 
                 await dirSync(dir, files, 0, connection);
             } else {
-                throw new Error("Not a directory!");
+                throw new Error(ERRORS.INVALID_DIRECTORY);
             }
         } else if (file) {
             const stats = await stat(file);
@@ -136,7 +134,7 @@ const client = async (args: ClientArgs) => {
                 const fileName = path.basename(file);
                 await dirSync(dir, [fileName], 0, connection);
             } else {
-                throw new Error("Not a file!");
+                throw new Error(ERRORS.INVALID_FILE);
             }
         }
     } catch (err) {
