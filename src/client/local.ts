@@ -51,6 +51,7 @@ const client = async (args: ClientArgs) => {
 
             cb(null, Buffer.concat([lengthBuf, file]));
         },
+        highWaterMark: 1024 * 1024
     });
 
     const dirSync = async (
