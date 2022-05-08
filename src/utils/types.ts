@@ -12,9 +12,10 @@ export interface Message {
 }
 
 export interface ServerArgs {
-    localPort?: number;
-    rootdir?: string;
+    port?: number;
+    rootDir?: string;
     bindIp?: string;
+    help?: string;
 }
 
 type FileArg = {
@@ -36,13 +37,14 @@ interface Options {
     include?: Pattern;
     exclude?: Pattern;
     remoteDir?: string;
+    help?: string;
 }
 
 export type ClientOptions = Options & FileOrDir;
 
 export type CliArgs = ServerArgs & ClientOptions & { _: Array<string>};
 
-export type ClientArgs = Required<Omit<Options, 'host' | 'port' | 'include' | 'exclude'>>
+export type ClientArgs = Required<Omit<Options, 'host' | 'port' | 'include' | 'exclude' | 'help'>>
     & {
         include: Array<Pattern>;
         exclude: Array<Pattern>

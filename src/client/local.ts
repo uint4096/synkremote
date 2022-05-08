@@ -25,7 +25,7 @@ const client = async (args: ClientArgs) => {
 
     const connection = createConnection({
         host: addr.split(":")[0],
-        port: parseInt(addr.split(":")[1]),
+        port: parseInt(addr.split(":")[1]) || 8080,
     });
 
     connection.on("error", (err) => {

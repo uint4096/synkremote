@@ -8,8 +8,8 @@ import { DEFAULT_DIR, ERRORS } from "../utils/constants";
 
 const server = (args: ServerArgs): void => {
 
-    const rootDir = args.rootdir || DEFAULT_DIR;
-    const port = args.localPort || 8080;
+    const rootDir = args.rootDir || DEFAULT_DIR;
+    const port = args.port || 8080;
 
     const message: Message = protoBuf(
         readFileSync(join(__dirname, "../schema.proto"))
@@ -62,7 +62,7 @@ const server = (args: ServerArgs): void => {
         });
     });
 
-    const logMessage = `Synkremote started on port ${port}`;
+    const logMessage = `synkremote started on port ${port}`;
     if (args.bindIp) {
         server.listen(port, args.bindIp, () => console.log(logMessage))
     } else {

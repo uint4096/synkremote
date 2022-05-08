@@ -24,3 +24,12 @@ export const ERRORS = {
     INCORRECT_PATH: "No file or directory specified",
     NO_SERVER: "Server not ready."
 }
+
+export const HELP = "usage: synkremote [--help] [--port <port>]\n\
+                  [--bindIp <ipv4>] [--rootDir <dir>]\n\
+Run 'synkremote send --help' to show the help section for sending files.";
+
+export const CLIENT_HELP = "usage: synkremote send [--help] [--host <host>] [--port <port>]\n\
+                       [--addr <host:port>] [--dir <dir-path>] [--file <file-path>]\n\
+                       [--remoteDir <dir-name>] [--include <pattern>] [--exclude <pattern>]\n\
+Run 'synkremote --help' to show the help section for starting the server.";

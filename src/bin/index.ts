@@ -8,9 +8,11 @@ import client from '../client/local';
 import server from '../server/remote';
 import type { CliArgs } from '../utils/types';
 import {
+    CLIENT_HELP,
     DEFAULT_REMOTE_DIR,
     ERRORS,
     EXLCUDES_CONFIG,
+    HELP,
     INCLUDES_CONFIG
 } from '../utils/constants';
 
@@ -44,6 +46,11 @@ import {
     try {
         const args = minimist(process.argv.slice(2)) as CliArgs;
         if (args && args['_'].length > 0 && args['_'].includes('send')) {
+
+            if (args.help) {
+                console.log(CLIENT_HELP);
+                return;
+            }
 
             if (!args.addr && (!args.host || !args.port)) {
                 throw new Error(ERRORS.INVALID_ADDRESS);
@@ -88,9 +95,16 @@ import {
                 await client({ ...clientArgs, dir: args.dir });
             }
         } else {
+
+            if (args.help) {
+                console.log(HELP);
+                return;
+            }
+
             server({
-                localPort: args.localPort,
-                rootdir: args.rootdir
+                port: args.port,
+                rootDir: args.rootDir,
+                bindIp: args.bindIp
             });
         }
     } catch(err) {
