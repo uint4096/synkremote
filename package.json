@@ -1,7 +1,7 @@
 {
   "name": "synkremote",
-  "version": "1.0.0",
-  "description": "",
+  "version": "1.0.2",
+  "description": "A CLI tool to share files/directories between remote systems.",
   "main": "dist/bin/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -15,6 +15,7 @@
     "transfer",
     "remote"
   ],
+  "homepage": "https://github.com/uint4096/synkremote",
   "author": "",
   "license": "ISC",
   "dependencies": {

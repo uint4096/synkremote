@@ -10,7 +10,7 @@ A CLI tool to share files/directories between remote systems.
 
 ## Usage
 
-### Recieve
+### Receive
 
 The system recieving the files should have the synkremote server running. To start the server, run:
 
