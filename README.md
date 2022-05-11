@@ -12,7 +12,7 @@ A CLI tool to share files/directories between remote systems.
 
 ### Receive
 
-The system recieving the files should have the synkremote server running. To start the server, run:
+The system receiving the files should have the synkremote server running. To start the server, run:
 
 
     synkremote
@@ -58,7 +58,7 @@ You can specfiy multiple patterns in the *include* and *exclude* files respectiv
 |------------|---------------------------------------------------------------------------------------------|--------------------------|
 | --addr     | The address of the server receiving the files in the *host:port* format.                    | No |
 | --host     | The IPv4 address or hostname of the remote server. An alternative to the --addr option.     | Yes if the *--addr* option is not provided, otherwise no|
-| --host     | The port on which the synkremote server is running on the remote server. Defaults to 8080.  | No | 
+| --port     | The port on which the synkremote server is running on the remote server. Defaults to 8080.  | No | 
 | --file     | The file to send to the remote server.                                                      | No |
 | --dir      | The directory to send to the remote server.                                                 | Yes if the *--file* option is not provided, otherwise no|
 | --remoteDir| The name of the directory on the remote server. <br/> Defaults to the current name of the directory if the *--dir* option is provided. <br/> If the *--file* option is provided, defaults to the name of the directory in which the file currently exists.         | No |
