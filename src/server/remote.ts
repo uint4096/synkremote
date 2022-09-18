@@ -37,7 +37,7 @@ const server = (args: ServerArgs): void => {
                     offset = length + 4;
                     packets = packets.slice(offset);
 
-                    if (!file.content || !file.name) {
+                    if ((!file.content && !file.image) || !file.name) {
                         throw new Error(ERRORS.PARSE_CONTENT);
                     }
 
@@ -51,9 +51,12 @@ const server = (args: ServerArgs): void => {
                     }
 
                     const fileHandler = await open(filePath, "a");
-                    await fileHandler.write(file.content);
+                    if (!!file.content) {
+                        await fileHandler.write(file.content as string);
+                    } else {
+                        await fileHandler.write(file.image as Buffer);
+                    }
                     await fileHandler.close();
-
                     console.log(`Synced ${file.name}`);
                 } else {
                     break;

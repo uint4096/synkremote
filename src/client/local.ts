@@ -1,5 +1,5 @@
 import { stat } from "fs/promises";
-import { createReadStream, existsSync, readFileSync } from "fs";
+import { createReadStream, readFileSync } from "fs";
 import protoBuf from 'protocol-buffers';
 import { createConnection, Socket } from "net";
 import path from "path";
@@ -36,22 +36,31 @@ const client = async (args: ClientArgs) => {
         console.log("Connection closed");
     });
 
-    const createTransformStream = (filePath: string): Transform => new Transform({
+    const createTransformStream = (
+        filePath: string,
+        type: 'text' | 'image' = 'text' as const
+    ): Transform => new Transform({
         transform (chunk: Buffer, _, cb) {
-            const file = message.File.encode({
+            const msg: any = {
                 name: `${filePath.replace(
                     args.dir || path.dirname(args.file as string),
                     remoteDir
-                )}`,
-                content: chunk.toString('utf-8')
-            });
+                )}`
+            };
+
+            if (type === 'image') {
+                msg.image = chunk
+            } else {
+                msg.content = chunk.toString('utf-8')
+            }
+
+            const file = message.File.encode(msg);
 
             const lengthBuf = Buffer.alloc(4);
             lengthBuf.writeUInt32BE(file.length);
 
             cb(null, Buffer.concat([lengthBuf, file]));
         },
-        highWaterMark: 1024 * 1024
     });
 
     const dirSync = async (
@@ -68,7 +77,7 @@ const client = async (args: ClientArgs) => {
         const filePath = path.join(directory, files[index]);
 
         return new Promise((resolve, reject) => {
-            const readable = createReadStream(filePath, { flags: "r" });
+            const readable = createReadStream(filePath, { flags: "r", highWaterMark: 8 * 1024 },);
             readable.on("open", () => {
                 console.log(`Reading ${filePath}`);
             });
@@ -78,7 +87,11 @@ const client = async (args: ClientArgs) => {
                 reject(err.message);
             });
 
-            const transform = createTransformStream(filePath);
+            const type = filePath.includes('jpg')
+                ? 'image'
+                : 'text';
+
+            const transform = createTransformStream(filePath, type);
 
             transform.on("data", (chunk: Buffer) => {
                 const written = connection.write(chunk);
