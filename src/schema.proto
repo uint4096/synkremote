@@ -1,5 +1,4 @@
 message File {
   required string name = 1;
-  string content = 2;
-  bytes image = 3;
+  bytes content = 2;
 }

@@ -1,22 +1,13 @@
 import type { Pattern } from 'fast-glob';
 interface File {
     name: string;
-}
-
-export interface Image extends File {
-    content: string;
-    image?: never;
-}
-
-export interface Text extends File {
-    content?: never;
-    image: Buffer;
+    content: Buffer;
 }
 
 export interface Message {
     File: {
-        encode: (file: Text | Image) => Buffer;
-        decode: (message: Buffer, offset: number, length: number) => Text | Image;
+        encode: (file: File) => Buffer;
+        decode: (message: Buffer, offset: number, length: number) => File;
     }
 }
 

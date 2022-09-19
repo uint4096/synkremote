@@ -37,8 +37,7 @@ const client = async (args: ClientArgs) => {
     });
 
     const createTransformStream = (
-        filePath: string,
-        type: 'text' | 'image' = 'text' as const
+        filePath: string
     ): Transform => new Transform({
         transform (chunk: Buffer, _, cb) {
             const msg: any = {
@@ -48,12 +47,7 @@ const client = async (args: ClientArgs) => {
                 )}`
             };
 
-            if (type === 'image') {
-                msg.image = chunk
-            } else {
-                msg.content = chunk.toString('utf-8')
-            }
-
+            msg.content = chunk;
             const file = message.File.encode(msg);
 
             const lengthBuf = Buffer.alloc(4);
@@ -77,7 +71,7 @@ const client = async (args: ClientArgs) => {
         const filePath = path.join(directory, files[index]);
 
         return new Promise((resolve, reject) => {
-            const readable = createReadStream(filePath, { flags: "r", highWaterMark: 8 * 1024 },);
+            const readable = createReadStream(filePath, { flags: "r", highWaterMark: 16 * 1024 });
             readable.on("open", () => {
                 console.log(`Reading ${filePath}`);
             });
@@ -87,11 +81,7 @@ const client = async (args: ClientArgs) => {
                 reject(err.message);
             });
 
-            const type = filePath.includes('jpg')
-                ? 'image'
-                : 'text';
-
-            const transform = createTransformStream(filePath, type);
+            const transform = createTransformStream(filePath);
 
             transform.on("data", (chunk: Buffer) => {
                 const written = connection.write(chunk);
@@ -134,7 +124,8 @@ const client = async (args: ClientArgs) => {
             if (stats.isDirectory()) {
                 const files = await fg(include, {
                         cwd: dir,
-                        ignore: exclude
+                        ignore: exclude,
+                        dot: true
                     });
 
                 await dirSync(dir, files, 0, connection);
