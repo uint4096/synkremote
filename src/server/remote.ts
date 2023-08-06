@@ -30,7 +30,7 @@ const server = (args: ServerArgs): void => {
           const file = message.File.decode(Buffer.from(packets), 4, length);
 
           offset = length + 4;
-          packets = packets.slice(offset);
+          packets = packets.subarray(offset);
 
           if (!file.content || !file.name) {
             throw new Error(ERRORS.PARSE_CONTENT);

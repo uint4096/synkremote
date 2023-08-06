@@ -28,13 +28,15 @@ import {
 
     if (value) {
       return [value];
-    } else if (existsSync(config)) {
+    }
+    
+    if (existsSync(config)) {
       return readFileSync(config, { encoding: "utf-8" })
         .split(EOL)
         .filter(Boolean);
-    } else {
-      return [fallback].filter(Boolean) as Array<string>;
     }
+
+    return [fallback].filter(Boolean) as Array<string>;
   };
 
   try {

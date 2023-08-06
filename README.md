@@ -14,7 +14,7 @@ A CLI tool to share files/directories between remote systems.
 
 The system receiving the files should have the synkremote server running. To start the server, run:
 
-    synkremote
+    synkremote --bindIp=<server_ip>
 
 #### Options
 

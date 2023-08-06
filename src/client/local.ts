@@ -1,12 +1,12 @@
 import { stat } from "fs/promises";
 import { createReadStream, readFileSync } from "fs";
+import fg from "fast-glob";
 import protoBuf from "protocol-buffers";
-import { createConnection, Socket } from "net";
+import { createConnection } from "net";
 import path from "path";
 import { Transform } from "stream";
-import type { ClientArgs, Message } from "../utils/types";
-import fg from "fast-glob";
 import { ERRORS } from "../utils/constants";
+import type { ClientArgs, Message } from "../utils/types";
 
 const client = async (args: ClientArgs) => {
   const { addr, file, dir, remoteDir, include, exclude } = args;
@@ -35,7 +35,7 @@ const client = async (args: ClientArgs) => {
       },
     });
 
-  const dirSync = async (directory: string, file: string) => {
+  const syncFile = async (directory: string, file: string) => {
     const filePath = path.join(directory, file);
     const connection = createConnection({
       host: addr.split(":")[0],
@@ -48,7 +48,7 @@ const client = async (args: ClientArgs) => {
         reject(err.message);
       });
       connection.on("finish", () => {
-        console.log("Connection closed");
+        console.log(`Sync initiated for ${filePath}.`);
         resolve("Done!");
       });
 
@@ -85,7 +85,7 @@ const client = async (args: ClientArgs) => {
         });
 
         for (const file of files) {
-          await dirSync(dir, file);
+          await syncFile(dir, file);
         }
       } else {
         throw new Error(ERRORS.INVALID_DIRECTORY);
@@ -95,7 +95,7 @@ const client = async (args: ClientArgs) => {
       if (!stats.isDirectory()) {
         const dir = path.dirname(file);
         const fileName = path.basename(file);
-        await dirSync(dir, fileName);
+        await syncFile(dir, fileName);
       } else {
         throw new Error(ERRORS.INVALID_FILE);
       }
