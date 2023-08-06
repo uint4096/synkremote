@@ -27,9 +27,9 @@ The system receiving the files should have the synkremote server running. To sta
 
 ### Send
 
-Synkremote supports sending both files and directories. You can start sending data by running:
+Synkremote supports sending both files and directories. You can send data by running:
 
-    synkremote send
+    synkremote send [options]
 
 For example, to send the directory _~/my-dir_ to a remote system _synkhost.com_, where the synkremote server is running on port _8080_, you can run:
 
